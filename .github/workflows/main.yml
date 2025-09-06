@@ -1,0 +1,31 @@
+name: Sync Google Sheet
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read config
+        id: config
+        run: |
+          echo "doc_id=$(jq -r .DOC_ID config.json)" >> $GITHUB_OUTPUT
+          echo "file_name=$(jq -r .FILE_NAME config.json)" >> $GITHUB_OUTPUT
+
+      - name: Download Google Sheet
+        run: |
+          wget -q -O ${{ steps.config.outputs.file_name }} "https://docs.google.com/spreadsheets/d/${{ steps.config.outputs.doc_id }}/export?format=csv"
+
+      - name: Commit and push file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.config.outputs.file_name }}
+          # Chỉ commit và push nếu có sự thay đổi trong file
+          git diff --staged --quiet || (git commit -m "Update ${{ steps.config.outputs.file_name }}" && git push)
